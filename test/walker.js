@@ -222,7 +222,16 @@ suite('AST Walker', function () {
         test('update expression');
         test('logical expression');
         test('conditional expression');
-        test('call expression');
+
+        test('call expression', function () {
+            this.walk('foo();');
+            var expression = this.callbacks.processNode.firstCall.args[0].expression;
+            assert.strictEqual(expression.type, 'CallExpression');
+            assert.strictEqual(expression.callee.type, 'Identifier');
+            assert.strictEqual(expression.callee.name, 'foo');
+            assert.deepEqual(expression.arguments, []);
+        });
+
         test('new expression');
         test('member expression');
         test('super expression');

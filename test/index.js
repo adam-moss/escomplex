@@ -1,48 +1,21 @@
 'use strict';
 
-var assert, mockery, spooks, modulePath;
+var _ = require('lodash');
+var assert = require('chai').assert;
+var modulePath = '../src';
 
-assert = require('chai').assert;
-mockery = require('mockery');
-spooks = require('spooks');
-
-modulePath = '../src';
-
-mockery.registerAllowable(modulePath);
-mockery.registerAllowable('check-types');
+var expectedReport = {
+    functions: [],
+    dependencies: [],
+    maintainability: 171,
+    loc: 1,
+    cyclomatic: 1,
+    effort: 0,
+    params: 0,
+    path: ''
+};
 
 suite('index:', function () {
-    var log, walker;
-
-    setup(function () {
-        log = {};
-        walker = {};
-        mockery.enable({ useCleanCache: true });
-        mockery.registerMock('esprima', {
-            parse: spooks.fn({
-                name: 'esprima.parse',
-                log: log,
-                result: 'esprima.parse result'
-            })
-        });
-        mockery.registerMock('./walker', walker);
-        mockery.registerMock('./core', {
-            analyse: spooks.fn({
-                name: 'core.analyse',
-                log: log,
-                result: 'core.analyse result'
-            })
-        });
-    });
-
-    teardown(function () {
-        mockery.deregisterMock('esprima');
-        mockery.deregisterMock('./walker');
-        mockery.deregisterMock('./core');
-        mockery.disable();
-        log = walker = undefined;
-    });
-
     test('require does not throw', function () {
         assert.doesNotThrow(function () {
             require(modulePath);
@@ -74,91 +47,105 @@ suite('index:', function () {
             });
         });
 
-        test('esprima.parse was not called', function () {
-            assert.strictEqual(log.counts['esprima.parse'], 0);
-        });
-
-        test('core.analyse was not called', function () {
-            assert.strictEqual(log.counts['core.analyse'], 0);
-        });
-
         suite('array source:', function () {
-            var options, result;
+            var result;
 
             setup(function () {
-                options = {};
-                result = index.analyse([ { path: '/foo.js', code: 'console.log("foo");' }, { path: '../bar.js', code: '"bar";' } ], options);
+                var ast = [{
+                  path: '/foo.js',
+                  code: 'console.log("foo");'
+                },{
+                  path: '../bar.js',
+                  code: '"bar";'
+                }];
+                result = index.analyse(ast, {});
             });
 
             teardown(function () {
-                options = result = undefined;
-            });
-
-            test('esprima.parse was called twice', function () {
-                assert.strictEqual(log.counts['esprima.parse'], 2);
-            });
-
-            test('esprima.parse was passed two arguments first time', function () {
-                assert.lengthOf(log.args['esprima.parse'][0], 2);
-            });
-
-            test('esprima.parse was given correct source first time', function () {
-                assert.strictEqual(log.args['esprima.parse'][0][0], 'console.log("foo");');
-            });
-
-            test('esprima.parse was given correct options first time', function () {
-                assert.isObject(log.args['esprima.parse'][0][1]);
-                assert.isTrue(log.args['esprima.parse'][0][1].loc);
-                assert.lengthOf(Object.keys(log.args['esprima.parse'][0][1]), 1);
-            });
-
-            test('esprima.parse was passed two arguments second time', function () {
-                assert.lengthOf(log.args['esprima.parse'][1], 2);
-            });
-
-            test('esprima.parse was given correct source second time', function () {
-                assert.strictEqual(log.args['esprima.parse'][1][0], '"bar";');
-            });
-
-            test('esprima.parse was given correct options second time', function () {
-                assert.isObject(log.args['esprima.parse'][1][1]);
-                assert.isTrue(log.args['esprima.parse'][1][1].loc);
-                assert.lengthOf(Object.keys(log.args['esprima.parse'][1][1]), 1);
-            });
-
-            test('core.analyse was called once', function () {
-                assert.strictEqual(log.counts['core.analyse'], 1);
-            });
-
-            test('core.analyse was passed three arguments', function () {
-                assert.lengthOf(log.args['core.analyse'][0], 3);
-            });
-
-            test('core.analyse was given correct asts', function () {
-                assert.isArray(log.args['core.analyse'][0][0]);
-                assert.lengthOf(log.args['core.analyse'][0][0], 2);
-
-                assert.isObject(log.args['core.analyse'][0][0][0]);
-                assert.strictEqual(log.args['core.analyse'][0][0][0].path, '/foo.js');
-                assert.strictEqual(log.args['core.analyse'][0][0][0].ast, 'esprima.parse result');
-                assert.lengthOf(Object.keys(log.args['core.analyse'][0][0][0]), 2);
-
-                assert.isObject(log.args['core.analyse'][0][0][1]);
-                assert.strictEqual(log.args['core.analyse'][0][0][1].path, '../bar.js');
-                assert.strictEqual(log.args['core.analyse'][0][0][1].ast, 'esprima.parse result');
-                assert.lengthOf(Object.keys(log.args['core.analyse'][0][0][1]), 2);
-            });
-
-            test('core.analyse was given correct walker', function () {
-                assert.strictEqual(log.args['core.analyse'][0][1], walker);
-            });
-
-            test('core.analyse was given correct options', function () {
-                assert.strictEqual(log.args['core.analyse'][0][2], options);
+                result = undefined;
             });
 
             test('correct result was returned', function () {
-                assert.strictEqual(result, 'core.analyse result');
+                assert.strictEqual(result.reports.length, 2);
+
+                var expectedFirstReport = _.extend({}, expectedReport, {
+                    aggregate: {
+                        cyclomatic: 1,
+                        cyclomaticDensity: 100,
+                        halstead: {
+                            bugs: 0,
+                            difficulty: 0,
+                            effort: 0,
+                            length: 1,
+                            operands: {
+                                distinct: 1,
+                                total: 1,
+                                identifiers: ['"bar"']
+                            },
+                            operators: {
+                                distinct: 0,
+                                total: 0,
+                                identifiers: []
+                            },
+                            time: 0,
+                            vocabulary: 1,
+                            volume: 0
+                        },
+                        line: 1,
+                        name: undefined,
+                        params: 0,
+                        sloc: {
+                            logical: 1,
+                            physical: 1
+                        }
+                    },
+                    path: '../bar.js'
+                });
+                assert.deepEqual(result.reports[0], expectedFirstReport);
+
+                var expectedSecondReport = _.extend({}, expectedReport, {
+                    aggregate: {
+                        cyclomatic: 1,
+                        cyclomaticDensity: 100,
+                        line: 1,
+                        name: undefined,
+                        params: 0,
+                        sloc: {
+                            logical: 1,
+                            physical: 1
+                        },
+                        halstead: {
+                            bugs: 0.0038698801581456034,
+                            difficulty: 1,
+                            effort: 11.60964047443681,
+                            length: 5,
+                            operands: {
+                                distinct: 3,
+                                total: 3,
+                                identifiers: [
+                                    '"foo"',
+                                    'console',
+                                    'log'
+                                ]
+                            },
+                            operators: {
+                                distinct: 2,
+                                total: 2,
+                                identifiers: [
+                                    '()',
+                                    '.'
+                                ]
+                            },
+                            time: 0.6449800263576005,
+                            vocabulary: 5,
+                            volume: 11.60964047443681
+                        }
+                    },
+                    effort: 11.60964047443681,
+                    maintainability: 162.61472146706737,
+                    path: "/foo.js"
+                });
+                assert.deepEqual(result.reports[1], expectedSecondReport);
             });
         });
 
@@ -166,8 +153,6 @@ suite('index:', function () {
             var code;
 
             setup(function () {
-                mockery.deregisterMock('esprima');
-                mockery.disable();
                 code = [ { path: '/foo.js', code: 'foo foo' }, { path: '../bar.js', code: '"bar";' } ];
                 index = require(modulePath);
             });
@@ -190,57 +175,64 @@ suite('index:', function () {
         });
 
         suite('string source:', function () {
-            var options, result;
-
-            setup(function () {
-                options = {};
-                result = index.analyse('foo bar baz', options);
-            });
-
-            teardown(function () {
-                options = result = undefined;
-            });
-
-            test('esprima.parse was called once', function () {
-                assert.strictEqual(log.counts['esprima.parse'], 1);
-            });
-
-            test('esprima.parse was passed two arguments', function () {
-                assert.lengthOf(log.args['esprima.parse'][0], 2);
-            });
-
-            test('esprima.parse was given correct source', function () {
-                assert.strictEqual(log.args['esprima.parse'][0][0], 'foo bar baz');
-            });
-
-            test('esprima.parse was given correct options', function () {
-                assert.isObject(log.args['esprima.parse'][0][1]);
-                assert.isTrue(log.args['esprima.parse'][0][1].loc);
-                assert.lengthOf(Object.keys(log.args['esprima.parse'][0][1]), 1);
-            });
-
-            test('core.analyse was called once', function () {
-                assert.strictEqual(log.counts['core.analyse'], 1);
-            });
-
-            test('core.analyse was passed three arguments', function () {
-                assert.lengthOf(log.args['core.analyse'][0], 3);
-            });
-
-            test('core.analyse was given correct ast', function () {
-                assert.strictEqual(log.args['core.analyse'][0][0], 'esprima.parse result');
-            });
-
-            test('core.analyse was given correct walker', function () {
-                assert.strictEqual(log.args['core.analyse'][0][1], walker);
-            });
-
-            test('core.analyse was given correct options', function () {
-                assert.strictEqual(log.args['core.analyse'][0][2], options);
+            test('gh-17 regression test', function () {
+                assert.doesNotThrow(function () {
+                    index.analyse('(function() { var a; })();', {
+                        range: true,
+                        comment: true
+                    });
+                });
             });
 
             test('correct result was returned', function () {
-                assert.strictEqual(result, 'core.analyse result');
+                var report = index.analyse('var foo, bar, baz', {});
+                var expected = _.extend({}, expectedReport, {
+                    aggregate: {
+                        cyclomatic: 1,
+                        cyclomaticDensity: 33.33333333333333,
+                        halstead: {
+                            bugs: 0.0026666666666666666,
+                            difficulty: 0.5,
+                            effort: 4,
+                            length: 4,
+                            operands: {
+                                distinct: 3,
+                                total: 3,
+                                identifiers: [
+                                    'foo',
+                                    'bar',
+                                    'baz'
+                                ]
+                            },
+                            operators: {
+                                distinct: 1,
+                                total: 1,
+                                identifiers: [
+                                    'var'
+                                ]
+                            },
+                            time: 0.2222222222222222,
+                            vocabulary: 4,
+                            volume: 8
+                        },
+                        line: 1,
+                        name: undefined,
+                        params: 0,
+                        sloc: {
+                            logical: 3,
+                            physical: 1
+                        }
+                   },
+                    cyclomatic: 1,
+                    dependencies: [],
+                    effort: 4,
+                    functions: [],
+                    maintainability: 148.4613542085466,
+                    loc: 3,
+                    params: 0
+                });
+                delete expected.path;
+                assert.deepEqual(report, expected);
             });
         });
     });
