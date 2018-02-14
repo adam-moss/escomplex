@@ -42,7 +42,7 @@
   ],
   "dependencies": {
     "check-types": "7.0.0",
-    "snyk": "1.14.2"
+    "snyk": "1.19.1"
   },
   "devDependencies": {
     "chai": "3.4.1",
